@@ -1,38 +1,60 @@
 <!doctype html>
 <html lang="pt-BR">
 <head>
-  <meta charset="utf-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1">
-  <meta name="theme-color" content="#101010">
-  <title>ChatZada</title>
-  <style>
-    * { box-sizing: border-box; }
-    body {
-      margin: 0; min-height: 100vh; display: grid; place-items: center;
-      padding: 24px; background: #101010; color: #f5f5f5;
-      font-family: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
-    }
-    main { width: min(100%, 440px); text-align: center; }
-    .mark { width: 56px; height: 56px; margin: 0 auto 22px; display: grid;
-      place-items: center; border: 1px solid #383838; border-radius: 18px;
-      font-size: 27px; }
-    h1 { margin: 0 0 10px; font-size: 30px; letter-spacing: -1px; }
-    p { margin: 0 auto 26px; color: #aaa; line-height: 1.6; }
-    a { display: inline-block; padding: 13px 22px; border-radius: 999px;
-      background: #f5f5f5; color: #111; text-decoration: none; font-weight: 650; }
-    a:hover { background: #ddd; }
-    small { display: block; margin-top: 22px; color: #777; line-height: 1.5; }
-  </style>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<meta name="theme-color" content="#101010">
+<title>ChatZada</title>
+<style>
+:root{color-scheme:dark;font-family:Inter,system-ui,-apple-system,Segoe UI,sans-serif}
+*{box-sizing:border-box}body{margin:0;background:#101010;color:#ececec;height:100dvh}
+.app{height:100%;max-width:900px;margin:auto;display:flex;flex-direction:column}
+header{height:62px;display:flex;align-items:center;justify-content:space-between;padding:0 20px;border-bottom:1px solid #292929}
+.brand{font-size:18px;font-weight:700;letter-spacing:-.4px}.brand span{color:#999;font-weight:400}
+#new{border:1px solid #3b3b3b;background:transparent;color:#ddd;padding:8px 12px;border-radius:9px;cursor:pointer}
+main{flex:1;overflow:auto;padding:28px 20px 18px}
+.welcome{max-width:650px;margin:15vh auto 0;text-align:center}.welcome h1{font-size:32px;letter-spacing:-1px;margin:0 0 10px}.welcome p{color:#999;margin:0}
+#messages{max-width:720px;margin:0 auto;display:flex;flex-direction:column;gap:20px}
+.msg{white-space:pre-wrap;line-height:1.65;font-size:15px}.msg.user{align-self:flex-end;max-width:85%;background:#252525;border-radius:18px;padding:12px 16px}.msg.assistant{align-self:stretch;padding:2px 4px}
+form{padding:12px 20px 20px}.composer{max-width:720px;margin:auto;display:flex;gap:10px;align-items:flex-end;background:#202020;border:1px solid #383838;border-radius:18px;padding:10px}
+textarea{flex:1;resize:none;max-height:180px;min-height:28px;border:0;outline:0;background:transparent;color:#fff;font:inherit;line-height:1.5}
+button.send{border:0;border-radius:12px;background:#eee;color:#111;width:38px;height:38px;font-size:19px;cursor:pointer}button:disabled{opacity:.45;cursor:wait}
+.note{text-align:center;color:#777;font-size:11px;margin:10px 0 0}
+.error{color:#ff9b9b}.typing{color:#999}
+@media(max-width:600px){header{height:56px}main{padding:20px 16px}.welcome{margin-top:18vh}.welcome h1{font-size:27px}form{padding:10px 12px 14px}}
+</style>
 </head>
 <body>
-  <main>
-    <div class="mark" aria-hidden="true">✳</div>
-    <h1>ChatZada</h1>
-    <p>Acesse o ChatGPT pelo site oficial.</p>
-    <a href="https://chatgpt.com/" target="_blank" rel="noopener noreferrer">
-      Abrir ChatGPT
-    </a>
-    <small>O acesso será realizado em chatgpt.com. Esta página é independente e não é afiliada à OpenAI.</small>
-  </main>
+<div class="app">
+<header><div class="brand">ChatZada <span>· assistente</span></div><button id="new" type="button">Nova conversa</button></header>
+<main id="main">
+  <section class="welcome" id="welcome"><h1>Como posso ajudar?</h1><p>Envie uma mensagem para começar.</p></section>
+  <section id="messages" aria-live="polite"></section>
+</main>
+<form id="form">
+  <div class="composer"><textarea id="prompt" rows="1" placeholder="Envie uma mensagem..." aria-label="Mensagem"></textarea><button class="send" id="send" aria-label="Enviar">↑</button></div>
+  <div class="note">As respostas usam a API oficial da OpenAI. O uso pode gerar custos na sua conta de API.</div>
+</form>
+</div>
+<script>
+const form=document.querySelector("#form"),promptBox=document.querySelector("#prompt"),messagesEl=document.querySelector("#messages"),welcome=document.querySelector("#welcome"),send=document.querySelector("#send"),main=document.querySelector("#main");
+let history=[];
+function addMessage(role,text,extra=""){welcome.hidden=true;const el=document.createElement("div");el.className="msg "+role+" "+extra;el.textContent=text;messagesEl.appendChild(el);main.scrollTop=main.scrollHeight;return el}
+function resize(){promptBox.style.height="auto";promptBox.style.height=Math.min(promptBox.scrollHeight,180)+"px"}
+promptBox.addEventListener("input",resize);
+promptBox.addEventListener("keydown",e=>{if(e.key==="Enter"&&!e.shiftKey){e.preventDefault();form.requestSubmit()}});
+form.addEventListener("submit",async e=>{
+ e.preventDefault();const text=promptBox.value.trim();if(!text||send.disabled)return;
+ history.push({role:"user",content:text});addMessage("user",text);promptBox.value="";resize();send.disabled=true;
+ const pending=addMessage("assistant","Pensando...","typing");
+ try{
+  const response=await fetch("/api/chat",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({messages:history})});
+  const data=await response.json();if(!response.ok)throw new Error(data.error||"Erro ao consultar o assistente.");
+  pending.textContent=data.reply;pending.classList.remove("typing");history.push({role:"assistant",content:data.reply});
+ }catch(err){pending.textContent=err.message;pending.classList.add("error");history.pop()}
+ finally{send.disabled=false;promptBox.focus();main.scrollTop=main.scrollHeight}
+});
+document.querySelector("#new").addEventListener("click",()=>{history=[];messagesEl.replaceChildren();welcome.hidden=false;promptBox.focus()});
+</script>
 </body>
 </html>
