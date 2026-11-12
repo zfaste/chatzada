@@ -1,9 +1,5 @@
 {
-  "redirects": [
-    {
-      "source": "/",
-      "destination": "https://chatgpt.com",
-      "permanent": false
-    }
-  ]
+  "functions": {
+    "api/chat.js": { "maxDuration": 30 }
+  }
 }
